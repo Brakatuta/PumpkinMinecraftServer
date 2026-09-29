@@ -41,8 +41,14 @@ services:
       - SERVER_ICON=server.png
       # Check GitHub for newer releases of the target MC version on startup
       - AUTO_UPDATE=true
+      # Memory / RAM limit label for banner reporting
+      - RAM_LIMIT=${RAM_LIMIT:-4g}
+    # Container Memory / RAM limit and reservation (adjust via .env or environment)
+    mem_limit: ${RAM_LIMIT:-4g}
+    mem_reservation: ${RAM_RESERVATION:-1g}
     volumes:
       # Mount directory on host to persist all configs, worlds, and logs
-      - ./server_data:/data
+      # :Z provides rootless Podman / Docker SELinux labeling support
+      - ./server_data:/data:Z
     stdin_open: true
     tty: true

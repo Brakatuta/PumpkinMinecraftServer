@@ -82,10 +82,29 @@ services:
       - OP_ACCOUNT=SOME_USER
       - SERVER_ICON=server.png
       - AUTO_UPDATE=true
+      - RAM_LIMIT=${RAM_LIMIT:-4g}
+    mem_limit: ${RAM_LIMIT:-4g}
+    mem_reservation: ${RAM_RESERVATION:-1g}
     volumes:
-      - ./server_data:/data
+      - ./server_data:/data:Z
     stdin_open: true
     tty: true
+```
+
+### RAM / Memory Limits
+Because Pumpkin is compiled directly to native machine code in **Rust** (unlike vanilla Java servers which run inside a Java Virtual Machine), there are no `-Xmx` or `-Xms` Java flags. Memory is managed natively with extreme efficiency.
+
+You can configure the RAM limits for the container using `RAM_LIMIT` and `RAM_RESERVATION` in `.env` or `docker-compose.yml`:
+- `RAM_LIMIT`: Hard memory ceiling for the container (e.g. `2g`, `4g`, `8g`, `16g`).
+- `RAM_RESERVATION`: Soft memory guarantee (e.g. `1g`, `2g`).
+
+When using `docker run` or `podman run`:
+```bash
+docker run -d --name pumpkin-server \
+  --network host \
+  -m 4g --memory-reservation 1g \
+  -v ./server_data:/data:Z \
+  pumpkin-minecraft-server:latest
 ```
 
 ### Networking & Port Options

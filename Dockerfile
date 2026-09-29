@@ -12,8 +12,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Set up working directory for persistent server data
 WORKDIR /data
 
-# Copy default icon template and entrypoint script
+# Copy default templates and entrypoint script
+RUN mkdir -p /defaults/data
 COPY server.png /defaults/server.png
+COPY pumpkin.toml /defaults/pumpkin.toml
+COPY data/ops.json /defaults/data/ops.json
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
