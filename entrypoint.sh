@@ -18,7 +18,7 @@ MOTD="${MOTD:-A blazingly fast Pumpkin Minecraft server!}"
 ONLINE_MODE="${ONLINE_MODE:-false}"
 DEFAULT_OP_LEVEL="${DEFAULT_OP_LEVEL:-4}"
 AUTO_UPDATE="${AUTO_UPDATE:-true}"
-OP_ACCOUNT="${OP_ACCOUNT:-Muharica}"
+OP_ACCOUNT="${OP_ACCOUNT:-SOME_USER}"
 
 DATA_DIR="/data"
 BIN_PATH="/usr/local/bin/pumpkin"

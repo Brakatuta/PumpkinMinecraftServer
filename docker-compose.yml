@@ -36,7 +36,7 @@ services:
       # Default operator permission level (4 = Owner/Admin)
       - DEFAULT_OP_LEVEL=4
       # Primary operator account to auto-initialize in ops.json
-      - OP_ACCOUNT=Muharica
+      - OP_ACCOUNT=SOME_USER
       # Check GitHub for newer releases of the target MC version on startup
       - AUTO_UPDATE=true
     volumes:

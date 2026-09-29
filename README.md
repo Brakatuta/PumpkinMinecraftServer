@@ -1,59 +1,62 @@
 # Pumpkin Minecraft Server (Rust-based) Docker Container
 
-Ein vollautomatischer Docker/Podman-Container für den in **Rust** geschriebenen Hochleistungs-Minecraft-Server **[Pumpkin](https://github.com/Pumpkin-MC/Pumpkin)**.
+A fully automated Docker/Podman container for the high-performance Minecraft server **[Pumpkin](https://github.com/Pumpkin-MC/Pumpkin)**, built entirely in **Rust**.
 
 ## Features
 
-- **Automatischer Versions-Download**: Übergib einfach den gewünschten Minecraft-Versionscode (z. B. `VERSION=26.2`), und der Container lädt automatisch die passende native Linux-Binary von GitHub herunter.
-- **Automatische Update-Prüfung**: Bei jedem Container-Start wird auf GitHub geprüft, ob ein neueres Release für die gewählte Version vorliegt.
-- **Vollständig konfigurierbar via Umgebungsvariablen**:
-  - `MAX_PLAYERS` (Standard: `10`)
-  - `VIEW_DISTANCE` (Standard: `32` Chunks)
-  - `SIMULATION_DISTANCE` (Standard: `16` Chunks)
-  - `SEED` (Welt-Seed, optional)
-  - `LAN_BROADCAST` (Standard: `true` – automatisches Erscheinen in der lokalen Serverliste)
-  - `GAMEMODE` (Standard: `Survival`)
-  - `DIFFICULTY` (Standard: `Normal`)
-  - `MOTD` (Servername / Beschreibung)
-  - `ONLINE_MODE` (Standard: `false` – erlaubt lokale/Offline-Accounts wie `Muharica`)
-  - `OP_ACCOUNT` (Standard: `Muharica` – wird automatisch als Admin mit Level 4 eingetragen)
-- **Persistente Datenhaltung**: Alle Konfigurationen, Welten, Spielerdaten und Logs werden im gemounteten Host-Verzeichnis `./server_data` gesichert.
-- **Logs**: Alle Server-Ausgaben werden live über die Container-Logs (`docker logs -f pumpkin-server`) sowie in `./server_data/logs/latest.log` gespeichert.
+- **Automatic Version Downloads**: Provide your target Minecraft version code (e.g. `VERSION=26.2`), and the container automatically discovers and downloads the matching native Linux x86_64 binary directly from GitHub releases.
+- **Automatic Update Checking**: Every time the container boots, it queries GitHub to ensure you are running the latest release for your selected version.
+- **Fully Configurable via Environment Variables**:
+  - `VERSION` (Default: `26.2`)
+  - `MAX_PLAYERS` (Default: `10`)
+  - `VIEW_DISTANCE` (Default: `32` chunks)
+  - `SIMULATION_DISTANCE` (Default: `16` chunks)
+  - `SEED` (Optional custom world generation seed)
+  - `LAN_BROADCAST` (Default: `true` — server automatically appears in local LAN world lists)
+  - `GAMEMODE` (Default: `Survival`)
+  - `DIFFICULTY` (Default: `Normal`)
+  - `MOTD` (Server message / display name)
+  - `ONLINE_MODE` (Default: `false` — permits offline/LAN players without Mojang session verification)
+  - `OP_ACCOUNT` (Default: `SOME_USER` — automatically configured as level 4 Owner in `ops.json`)
+  - `DEFAULT_OP_LEVEL` (Default: `4`)
+  - `AUTO_UPDATE` (Default: `true`)
+- **Persistent Data Storage**: All configurations, worlds, player data, and logs are cleanly mounted and preserved on the host in `./server_data`.
+- **Live Logging**: Console output is accessible live via container logs (`docker logs -f pumpkin-server`) and saved locally to `./server_data/logs/latest.log`.
 
 ---
 
-## Schnellstart
+## Quick Start
 
-### 1. Repository klonen
+### 1. Clone Repository
 ```bash
 git clone https://github.com/Brakatuta/PumpkinMinecraftServer.git
 cd PumpkinMinecraftServer
 ```
 
-### 2. Server starten mit Docker Compose oder Podman Compose
+### 2. Launch with Docker Compose or Podman Compose
 ```bash
 docker compose up -d --build
-# oder mit Podman:
+# Or with Podman:
 podman compose up -d --build
 ```
 
-### 3. Server-Logs ansehen
+### 3. View Live Logs
 ```bash
 docker compose logs -f
-# oder mit Podman:
+# Or with Podman:
 podman compose logs -f
 ```
 
-### 4. Server stoppen
+### 4. Stop the Server
 ```bash
 docker compose down
 ```
 
 ---
 
-## Konfiguration (`docker-compose.yml`)
+## Configuration (`docker-compose.yml`)
 
-Alle Einstellungen können direkt in der `docker-compose.yml` (oder über eine `.env`-Datei) angepasst werden:
+Adjust any server setting directly in `docker-compose.yml` or create a `.env` file from `.env.example`:
 
 ```yaml
 services:
@@ -62,7 +65,7 @@ services:
     image: pumpkin-minecraft-server:latest
     container_name: pumpkin-server
     restart: unless-stopped
-    network_mode: host # Empfohlen für automatische LAN-Erkennung (Multicast)
+    network_mode: host # Recommended for auto-discovery across your local home network
     environment:
       - VERSION=26.2
       - MAX_PLAYERS=10
@@ -75,7 +78,7 @@ services:
       - MOTD=A blazingly fast Pumpkin Minecraft server!
       - ONLINE_MODE=false
       - DEFAULT_OP_LEVEL=4
-      - OP_ACCOUNT=Muharica
+      - OP_ACCOUNT=SOME_USER
       - AUTO_UPDATE=true
     volumes:
       - ./server_data:/data
@@ -83,23 +86,23 @@ services:
     tty: true
 ```
 
-### Netzwerk & Ports
-* **`network_mode: host` (Standard & Empfohlen)**:
-  Ermöglicht dem Minecraft-Client im selben Netzwerk, den Server automatisch unter *"LAN-Welten"* in der Multiplayer-Liste zu sehen (UDP Multicast `224.0.2.60:4445`).
-* **Klassisches Port-Mapping (Bridge-Modus)**:
-  Falls du Bridge-Networking bevorzugst, kommentiere `network_mode: host` aus und aktiviere die Ports:
+### Networking & Port Options
+* **`network_mode: host` (Default & Recommended)**:
+  Allows Minecraft clients on your local network to discover the server automatically under *"LAN Worlds"* in the Multiplayer server list via UDP multicast (`224.0.2.60:4445`).
+* **Bridge Mode Port Mapping**:
+  If you prefer standard Docker bridge networking, comment out `network_mode: host` and uncomment the port mappings:
   ```yaml
   ports:
-    - "25565:25565"       # Java Edition
-    - "19132:19132/udp"   # Bedrock Edition
-    - "19133:19133/udp"   # Bedrock IPv6
-    - "4445:4445/udp"     # LAN Broadcast
+    - "25565:25565"       # Minecraft Java Edition
+    - "19132:19132/udp"   # Minecraft Bedrock Edition
+    - "19133:19133/udp"   # Bedrock IPv6 status
+    - "4445:4445/udp"     # Minecraft LAN Broadcast
   ```
 
 ---
 
-## Manuelle Standalone-Nutzung (ohne Docker)
+## Standalone Host Usage (Without Containers)
 
-Falls du den Server direkt auf der Linux-Hostmaschine ohne Container laufen lassen möchtest:
+If you prefer to run the server directly on the host machine without Docker:
 - **Start**: `./start.sh`
 - **Stop**: `./stop.sh`
