@@ -18,15 +18,16 @@ MOTD="${MOTD:-A blazingly fast Pumpkin Minecraft server!}"
 ONLINE_MODE="${ONLINE_MODE:-false}"
 DEFAULT_OP_LEVEL="${DEFAULT_OP_LEVEL:-4}"
 AUTO_UPDATE="${AUTO_UPDATE:-true}"
-OP_ACCOUNT="${OP_ACCOUNT:-SOME_USER}"
+OP_ACCOUNTS="${OP_ACCOUNTS:-${OP_ACCOUNT:-}}"
 SERVER_ICON="${SERVER_ICON:-server.png}"
 
 DATA_DIR="/data"
-BIN_PATH="/usr/local/bin/pumpkin"
+BIN_DIR="$DATA_DIR/bin"
+BIN_PATH="$BIN_DIR/pumpkin"
 VERSION_FILE="$DATA_DIR/.pumpkin_version"
 
 cd "$DATA_DIR"
-mkdir -p "$DATA_DIR/data" "$DATA_DIR/logs"
+mkdir -p "$DATA_DIR/data" "$DATA_DIR/logs" "$BIN_DIR"
 
 # --------------------------------------------------
 # 1. Initialize default templates if missing
@@ -52,23 +53,50 @@ fi
 # 2. Check & Fetch Pumpkin binary for Minecraft VERSION
 # --------------------------------------------------
 fetch_latest_release() {
+    # If AUTO_UPDATE is false and binary already exists, skip network check entirely
+    if [ "$AUTO_UPDATE" = "false" ] && [ -x "$BIN_PATH" ]; then
+        echo "[Updater] AUTO_UPDATE is disabled and Pumpkin binary is installed. Skipping update check."
+        ln -sf "$BIN_PATH" /usr/local/bin/pumpkin 2>/dev/null || true
+        return 0
+    fi
+
     echo "[Updater] Checking GitHub for Pumpkin release matching Minecraft ${VERSION}..."
     local releases_json
-    releases_json=$(curl -sSL "https://api.github.com/repos/Pumpkin-MC/Pumpkin/releases")
+    releases_json=$(curl -sSL --connect-timeout 5 --max-time 15 "https://api.github.com/repos/Pumpkin-MC/Pumpkin/releases" 2>/dev/null || true)
+
+    if [ -z "$releases_json" ] || echo "$releases_json" | grep -q "API rate limit exceeded"; then
+        if [ -x "$BIN_PATH" ]; then
+            echo "[Updater] Notice: GitHub API rate limited or unreachable. Using installed Pumpkin binary."
+            ln -sf "$BIN_PATH" /usr/local/bin/pumpkin 2>/dev/null || true
+            return 0
+        else
+            echo "[Updater] Error: Unable to reach GitHub releases and no local binary found!"
+            exit 1
+        fi
+    fi
 
     local matched_release
     matched_release=$(echo "$releases_json" | jq -c --arg ver "$VERSION" '
         [ .[] | select((.tag_name | test("\\+" + $ver + "($|-)")) or (.name | test($ver))) ] | first
-    ')
+    ' 2>/dev/null || true)
 
     if [ -z "$matched_release" ] || [ "$matched_release" = "null" ]; then
         echo "[Updater] Warning: No specific tag found matching '+${VERSION}'. Falling back to latest release."
-        matched_release=$(echo "$releases_json" | jq -c 'first')
+        matched_release=$(echo "$releases_json" | jq -c 'first' 2>/dev/null || true)
     fi
 
     local tag_name
-    tag_name=$(echo "$matched_release" | jq -r '.tag_name')
-    echo "[Updater] Found release tag: ${tag_name}"
+    tag_name=$(echo "$matched_release" | jq -r '.tag_name // empty' 2>/dev/null || true)
+
+    if [ -z "$tag_name" ]; then
+        if [ -x "$BIN_PATH" ]; then
+            echo "[Updater] Could not parse release tag. Using installed Pumpkin binary."
+            ln -sf "$BIN_PATH" /usr/local/bin/pumpkin 2>/dev/null || true
+            return 0
+        fi
+    fi
+
+    echo "[Updater] Latest available release tag for MC ${VERSION}: ${tag_name}"
 
     local current_installed=""
     if [ -f "$VERSION_FILE" ]; then
@@ -83,22 +111,27 @@ fetch_latest_release() {
         ')
 
         if [ -z "$download_url" ] || [ "$download_url" = "null" ]; then
+            if [ -x "$BIN_PATH" ]; then
+                echo "[Updater] Warning: pumpkin-X64-Linux asset missing. Keeping installed binary."
+                ln -sf "$BIN_PATH" /usr/local/bin/pumpkin 2>/dev/null || true
+                return 0
+            fi
             echo "[Updater] Error: pumpkin-X64-Linux asset not found in release ${tag_name}!"
             exit 1
         fi
 
         curl -sSL -o "$BIN_PATH" "$download_url"
         chmod +x "$BIN_PATH"
+        ln -sf "$BIN_PATH" /usr/local/bin/pumpkin 2>/dev/null || true
         echo "$tag_name" > "$VERSION_FILE"
         echo "[Updater] Successfully installed Pumpkin (${tag_name}) to ${BIN_PATH}."
     else
-        echo "[Updater] Pumpkin binary is up to date (${tag_name})."
+        echo "[Updater] Pumpkin binary is up to date (${tag_name}). No download needed."
+        ln -sf "$BIN_PATH" /usr/local/bin/pumpkin 2>/dev/null || true
     fi
 }
 
-if [ "$AUTO_UPDATE" = "true" ] || [ "$AUTO_UPDATE" = "force" ] || [ ! -x "$BIN_PATH" ]; then
-    fetch_latest_release
-fi
+fetch_latest_release
 
 if [ ! -x "$BIN_PATH" ]; then
     echo "[Error] No executable Pumpkin binary found at ${BIN_PATH}!"
@@ -203,7 +236,7 @@ python3 - <<EOF
 import json, hashlib, uuid, os, urllib.request
 
 ops_file = "${OPS_FILE}"
-raw_ops_input = "${OP_ACCOUNT}".strip()
+raw_ops_input = """${OP_ACCOUNTS}""".strip()
 online_mode = "${ONLINE_MODE}".lower() in ["true", "1", "yes"]
 default_level = int("${DEFAULT_OP_LEVEL}")
 
@@ -237,8 +270,9 @@ def get_mojang_uuid(name):
         pass
     return None, name
 
-# Purge legacy template dummy user if real users are configured
-usernames = [u.strip() for u in raw_ops_input.split(",") if u.strip()]
+# Support multiple operator accounts (comma, semicolon, or newline separated)
+import re
+usernames = [u.strip() for u in re.split(r'[,;\n\r]+', raw_ops_input) if u.strip()]
 if usernames and "SOME_USER" not in [u.upper() for u in usernames]:
     existing_ops = [op for op in existing_ops if op.get("name") != "SOME_USER"]
 
@@ -302,6 +336,7 @@ echo " LAN Broadcast:     ${LAN_BROADCAST}"
 echo " Server Icon:       ${SERVER_ICON}"
 echo " MOTD:              ${MOTD}"
 echo " Online Mode:       ${ONLINE_MODE}"
+echo " Operators:         ${OP_ACCOUNTS:-none}"
 echo " RAM Limit:         ${RAM_LIMIT:-unlimited (native Rust allocator)}"
 echo "=================================================="
 

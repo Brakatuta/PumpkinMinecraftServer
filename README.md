@@ -113,13 +113,13 @@ services:
       - GAMEMODE=Survival
       - DIFFICULTY=Normal
       - MOTD=A blazingly fast Pumpkin Minecraft server!
-      - ONLINE_MODE=false
-      - DEFAULT_OP_LEVEL=4
-      - OP_ACCOUNT=SOME_USER
-      - SERVER_ICON=server.png
-      - AUTO_UPDATE=true
-      - RAM_LIMIT=${RAM_LIMIT:-4g}
-    mem_limit: ${RAM_LIMIT:-4g}
+      - ONLINE_MODE=${ONLINE_MODE:-false}
+      - DEFAULT_OP_LEVEL=${DEFAULT_OP_LEVEL:-4}
+      - OP_ACCOUNTS=${OP_ACCOUNTS:-}
+      - SERVER_ICON=${SERVER_ICON:-server.png}
+      - AUTO_UPDATE=${AUTO_UPDATE:-true}
+      - RAM_LIMIT=${RAM_LIMIT:-6g}
+    mem_limit: ${RAM_LIMIT:-6g}
     mem_reservation: ${RAM_RESERVATION:-1g}
     volumes:
       - ./server_data:/data:Z
@@ -127,18 +127,45 @@ services:
     tty: true
 ```
 
+### Multiple Operator (OP) Accounts
+You can register multiple operators automatically. Specify them as a comma-separated list in `.env` or `docker-compose.yml`:
+
+**In `.env`:**
+```properties
+OP_ACCOUNTS=MuQarica, PlayerTwo, PlayerThree
+```
+
+**Or in `docker-compose.yml`:**
+```yaml
+      - OP_ACCOUNTS=MuQarica, PlayerTwo, PlayerThree
+```
+
+The container automatically calculates the exact native offline UUID (or Mojang online UUID if `ONLINE_MODE=true`) for each player and registers them in `data/ops.json` with full operator level 4 permissions.
+
+---
+
+### Update Behavior & `AUTO_UPDATE`
+The Pumpkin server binary is cached persistently inside your volume at `./server_data/bin/pumpkin`.
+
+You can control update checking using `AUTO_UPDATE`:
+- **`AUTO_UPDATE=true` (Default)**: Checks GitHub on startup, but **only downloads if a newer release tag exists**. If your installed binary is already current, it skips downloading and starts immediately.
+- **`AUTO_UPDATE=false`**: Completely disables the GitHub check on startup for instantaneous offline/instant boot (2ms).
+- **`AUTO_UPDATE=force`**: Forces a fresh download of the binary from GitHub on startup.
+
+---
+
 ### RAM / Memory Limits
 Because Pumpkin is compiled directly to native machine code in **Rust** (unlike vanilla Java servers which run inside a Java Virtual Machine), there are no `-Xmx` or `-Xms` Java flags. Memory is managed natively with extreme efficiency.
 
 You can configure the RAM limits for the container using `RAM_LIMIT` and `RAM_RESERVATION` in `.env` or `docker-compose.yml`:
-- `RAM_LIMIT`: Hard memory ceiling for the container (e.g. `2g`, `4g`, `8g`, `16g`).
+- `RAM_LIMIT`: Hard memory ceiling for the container (e.g. `2g`, `4g`, `6g`, `8g`, `16g`).
 - `RAM_RESERVATION`: Soft memory guarantee (e.g. `1g`, `2g`).
 
 When using `docker run` or `podman run`:
 ```bash
 docker run -d --name pumpkin-server \
   --network host \
-  -m 4g --memory-reservation 1g \
+  -m 6g --memory-reservation 1g \
   -v ./server_data:/data:Z \
   pumpkin-minecraft-server:latest
 ```

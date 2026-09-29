@@ -35,8 +35,8 @@ services:
       - ONLINE_MODE=${ONLINE_MODE:-false}
       # Default operator permission level (4 = Owner/Admin)
       - DEFAULT_OP_LEVEL=${DEFAULT_OP_LEVEL:-4}
-      # Primary operator account(s) to auto-initialize in ops.json (comma-separated supported)
-      - OP_ACCOUNT=${OP_ACCOUNT:-}
+      # Primary operator account(s) to auto-initialize in ops.json (comma-separated list, e.g. "MuQarica, PlayerTwo")
+      - OP_ACCOUNTS=${OP_ACCOUNTS:-${OP_ACCOUNT:-}}
       # Server icon filename (64x64 PNG located in /data, default: server.png)
       - SERVER_ICON=${SERVER_ICON:-server.png}
       # Check GitHub for newer releases of the target MC version on startup
