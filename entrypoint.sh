@@ -222,14 +222,6 @@ def get_pumpkin_sha256_uuid(name):
     digest = hashlib.sha256(name.encode('utf-8')).digest()[:16]
     return str(uuid.UUID(bytes=digest))
 
-def get_vanilla_md5_uuid(name):
-    """Vanilla Minecraft Java offline UUID (v3 RFC 4122)"""
-    content = ('OfflinePlayer:' + name).encode('utf-8')
-    md5 = bytearray(hashlib.md5(content).digest())
-    md5[6] = (md5[6] & 0x0f) | 0x30 # version 3
-    md5[8] = (md5[8] & 0x3f) | 0x80 # variant RFC 4122
-    return str(uuid.UUID(bytes=bytes(md5)))
-
 def get_mojang_uuid(name):
     """Fetch official online Mojang UUID"""
     try:
@@ -245,44 +237,50 @@ def get_mojang_uuid(name):
         pass
     return None, name
 
+# Purge legacy template dummy user if real users are configured
 usernames = [u.strip() for u in raw_ops_input.split(",") if u.strip()]
+if usernames and "SOME_USER" not in [u.upper() for u in usernames]:
+    existing_ops = [op for op in existing_ops if op.get("name") != "SOME_USER"]
 
 for user in usernames:
-    # Gather all UUID candidates to ensure OP matches regardless of launcher/auth mode
-    candidates = []
-    
-    # 1. Pumpkin native offline UUID (SHA256 slice)
-    p_uuid = get_pumpkin_sha256_uuid(user)
-    candidates.append((p_uuid, user, "Pumpkin SHA256 offline"))
+    if not user or user.upper() == "SOME_USER":
+        continue
 
-    # 2. Vanilla Minecraft offline UUID (MD5)
-    v_uuid = get_vanilla_md5_uuid(user)
-    if v_uuid != p_uuid:
-        candidates.append((v_uuid, user, "Vanilla MD5 offline"))
+    # In online mode, resolve official Mojang UUID; in offline mode, use Pumpkin's native SHA256 offline UUID
+    resolved_uuid = None
+    resolved_name = user
+    uuid_type = "Pumpkin SHA256 offline"
 
-    # 3. Mojang official online UUID (if resolvable)
-    mojang_uuid, mojang_name = get_mojang_uuid(user)
-    if mojang_uuid and mojang_uuid not in [c[0] for c in candidates]:
-        candidates.append((mojang_uuid, mojang_name, "Mojang online"))
+    if online_mode:
+        mojang_uuid, mojang_name = get_mojang_uuid(user)
+        if mojang_uuid:
+            resolved_uuid = mojang_uuid
+            resolved_name = mojang_name
+            uuid_type = "Mojang online"
+        else:
+            resolved_uuid = get_pumpkin_sha256_uuid(user)
+    else:
+        resolved_uuid = get_pumpkin_sha256_uuid(user)
 
-    for u_id, u_name, u_type in candidates:
-        matched = False
-        for op in existing_ops:
-            if op.get("uuid") == u_id:
-                op["name"] = u_name
-                op["level"] = default_level
-                op["bypassesPlayerLimit"] = op.get("bypassesPlayerLimit", False)
-                matched = True
-                print(f"[Config] Updated operator '{u_name}' ({u_type} UUID: {u_id}, Level: {default_level})")
-                break
-        if not matched:
-            existing_ops.append({
-                "uuid": u_id,
-                "name": u_name,
-                "level": default_level,
-                "bypassesPlayerLimit": False
-            })
-            print(f"[Config] Added operator '{u_name}' ({u_type} UUID: {u_id}, Level: {default_level})")
+    matched = False
+    for op in existing_ops:
+        if op.get("uuid") == resolved_uuid or op.get("name", "").lower() == resolved_name.lower():
+            op["uuid"] = resolved_uuid
+            op["name"] = resolved_name
+            op["level"] = default_level
+            op["bypassesPlayerLimit"] = op.get("bypassesPlayerLimit", False)
+            matched = True
+            print(f"[Config] Updated operator '{resolved_name}' ({uuid_type} UUID: {resolved_uuid}, Level: {default_level})")
+            break
+
+    if not matched:
+        existing_ops.append({
+            "uuid": resolved_uuid,
+            "name": resolved_name,
+            "level": default_level,
+            "bypassesPlayerLimit": False
+        })
+        print(f"[Config] Added operator '{resolved_name}' ({uuid_type} UUID: {resolved_uuid}, Level: {default_level})")
 
 with open(ops_file, "w", encoding="utf-8") as f:
     json.dump(existing_ops, f, indent=2)
