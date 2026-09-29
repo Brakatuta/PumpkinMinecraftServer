@@ -10,6 +10,7 @@ data/usercache.json
 server_data/
 world/
 logs/
+.env
 
 # Operating system files
 .DS_Store

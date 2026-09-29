@@ -14,33 +14,33 @@ services:
     #   - "4445:4445/udp"     # Minecraft LAN Broadcast
     environment:
       # Minecraft Target Version (e.g. 26.2)
-      - VERSION=26.2
+      - VERSION=${VERSION:-26.2}
       # Maximum concurrent players
-      - MAX_PLAYERS=10
+      - MAX_PLAYERS=${MAX_PLAYERS:-10}
       # Render / View distance in chunks (default: 32)
-      - VIEW_DISTANCE=32
+      - VIEW_DISTANCE=${VIEW_DISTANCE:-32}
       # Simulation distance in chunks
-      - SIMULATION_DISTANCE=16
+      - SIMULATION_DISTANCE=${SIMULATION_DISTANCE:-16}
       # World seed (leave empty for random or keep existing)
-      - SEED=
+      - SEED=${SEED:-}
       # Auto-broadcast to local network LAN server list
-      - LAN_BROADCAST=true
+      - LAN_BROADCAST=${LAN_BROADCAST:-true}
       # Default game mode: Survival, Creative, Adventure, Spectator
-      - GAMEMODE=Survival
+      - GAMEMODE=${GAMEMODE:-Survival}
       # Difficulty: Peaceful, Easy, Normal, Hard
-      - DIFFICULTY=Normal
+      - DIFFICULTY=${DIFFICULTY:-Normal}
       # Server Message of the Day
-      - MOTD=A blazingly fast Pumpkin Minecraft server!
+      - MOTD=${MOTD:-A blazingly fast Pumpkin Minecraft server!}
       # Online mode authentication (false allows offline/LAN accounts)
-      - ONLINE_MODE=false
+      - ONLINE_MODE=${ONLINE_MODE:-false}
       # Default operator permission level (4 = Owner/Admin)
-      - DEFAULT_OP_LEVEL=4
+      - DEFAULT_OP_LEVEL=${DEFAULT_OP_LEVEL:-4}
       # Primary operator account(s) to auto-initialize in ops.json (comma-separated supported)
-      - OP_ACCOUNT=SOME_USER
+      - OP_ACCOUNT=${OP_ACCOUNT:-SOME_USER}
       # Server icon filename (64x64 PNG located in /data, default: server.png)
-      - SERVER_ICON=server.png
+      - SERVER_ICON=${SERVER_ICON:-server.png}
       # Check GitHub for newer releases of the target MC version on startup
-      - AUTO_UPDATE=true
+      - AUTO_UPDATE=${AUTO_UPDATE:-true}
       # Memory / RAM limit label for banner reporting
       - RAM_LIMIT=${RAM_LIMIT:-4g}
     # Container Memory / RAM limit and reservation (adjust via .env or environment)

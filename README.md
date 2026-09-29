@@ -26,38 +26,74 @@ A fully automated Docker/Podman container for the high-performance Minecraft ser
 
 ---
 
-## Quick Start
+## Quick Start (Recommended: Decoupled Setup)
 
-### 1. Clone Repository
+To keep your personal configuration, persistent world data, and Compose files completely isolated from git updates (preventing any `git pull` merge conflicts), use the included `quickstart.sh` script:
+
+### 1. Clone & Initialize
 ```bash
 git clone https://github.com/Brakatuta/PumpkinMinecraftServer.git
 cd PumpkinMinecraftServer
+
+# Run quickstart to deploy docker-compose.yml and .env to the parent directory
+./quickstart.sh
 ```
 
-### 2. Launch with Docker Compose or Podman Compose
+This creates the following clean directory structure:
+```text
+SurvivalProject/
+├── docker-compose.yml      <-- Active Compose file (points to ./PumpkinMinecraftServer)
+├── .env                    <-- Your custom configuration settings
+├── server_data/            <-- Persistent world, configs, and logs
+└── PumpkinMinecraftServer/ <-- Cloned git repository (kept 100% clean)
+```
+
+### 2. Configure & Start
 ```bash
+# Move to your project root
+cd ..
+
+# (Optional) Customize server settings, RAM, player count, etc.
+nano .env
+
+# Start server in background
 docker compose up -d --build
 # Or with Podman:
 podman compose up -d --build
 ```
 
-### 3. View Live Logs
+### 3. View Live Logs & Stop
 ```bash
+# View live logs:
 docker compose logs -f
-# Or with Podman:
-podman compose logs -f
-```
 
-### 4. Stop the Server
-```bash
+# Stop the server:
 docker compose down
 ```
 
+### 4. Updating the Server (Conflict-Free!)
+Because you never edit any file inside `PumpkinMinecraftServer/`, updating is seamless:
+```bash
+cd PumpkinMinecraftServer
+git pull
+cd ..
+docker compose up -d --build
+```
+
+> [!TIP]
+> **Already experiencing a `git pull` conflict on `docker-compose.yml`?**
+> Run:
+> ```bash
+> git restore docker-compose.yml
+> git pull
+> ./quickstart.sh
+> ```
+
 ---
 
-## Configuration (`docker-compose.yml`)
+## Configuration (`.env` or `docker-compose.yml`)
 
-Adjust any server setting directly in `docker-compose.yml` or create a `.env` file from `.env.example`:
+Adjust your server settings in your `.env` file (copied from `.env.example`). All environment variables automatically fall back to sensible defaults:
 
 ```yaml
 services:
