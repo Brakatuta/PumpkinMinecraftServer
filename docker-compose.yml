@@ -1,0 +1,46 @@
+services:
+  pumpkin:
+    build: .
+    image: pumpkin-minecraft-server:latest
+    container_name: pumpkin-server
+    restart: unless-stopped
+    # Use network_mode: host for seamless LAN auto-discovery across your home network.
+    # Alternatively, you can comment out network_mode and uncomment ports below:
+    network_mode: host
+    # ports:
+    #   - "25565:25565"       # Minecraft Java Edition
+    #   - "19132:19132/udp"   # Minecraft Bedrock Edition
+    #   - "19133:19133/udp"   # Bedrock IPv6
+    #   - "4445:4445/udp"     # Minecraft LAN Broadcast
+    environment:
+      # Minecraft Target Version (e.g. 26.2)
+      - VERSION=26.2
+      # Maximum concurrent players
+      - MAX_PLAYERS=10
+      # Render / View distance in chunks (default: 32)
+      - VIEW_DISTANCE=32
+      # Simulation distance in chunks
+      - SIMULATION_DISTANCE=16
+      # World seed (leave empty for random or keep existing)
+      - SEED=
+      # Auto-broadcast to local network LAN server list
+      - LAN_BROADCAST=true
+      # Default game mode: Survival, Creative, Adventure, Spectator
+      - GAMEMODE=Survival
+      # Difficulty: Peaceful, Easy, Normal, Hard
+      - DIFFICULTY=Normal
+      # Server Message of the Day
+      - MOTD=A blazingly fast Pumpkin Minecraft server!
+      # Online mode authentication (false allows offline/LAN accounts)
+      - ONLINE_MODE=false
+      # Default operator permission level (4 = Owner/Admin)
+      - DEFAULT_OP_LEVEL=4
+      # Primary operator account to auto-initialize in ops.json
+      - OP_ACCOUNT=Muharica
+      # Check GitHub for newer releases of the target MC version on startup
+      - AUTO_UPDATE=true
+    volumes:
+      # Mount directory on host to persist all configs, worlds, and logs
+      - ./server_data:/data
+    stdin_open: true
+    tty: true

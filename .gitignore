@@ -1,0 +1,17 @@
+# Binaries
+pumpkin
+*.der
+
+# Runtime server data & state
+server.pid
+.pumpkin_version
+usercache.json
+data/usercache.json
+server_data/
+world/
+logs/
+
+# Operating system files
+.DS_Store
+*.swp
+*~
