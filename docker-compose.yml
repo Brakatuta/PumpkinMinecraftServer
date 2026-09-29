@@ -35,8 +35,10 @@ services:
       - ONLINE_MODE=false
       # Default operator permission level (4 = Owner/Admin)
       - DEFAULT_OP_LEVEL=4
-      # Primary operator account to auto-initialize in ops.json
+      # Primary operator account(s) to auto-initialize in ops.json (comma-separated supported)
       - OP_ACCOUNT=SOME_USER
+      # Server icon filename (64x64 PNG located in /data, default: server.png)
+      - SERVER_ICON=server.png
       # Check GitHub for newer releases of the target MC version on startup
       - AUTO_UPDATE=true
     volumes:

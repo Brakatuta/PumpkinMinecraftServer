@@ -9,6 +9,7 @@ default_gamemode = "Survival"
 force_gamemode = false
 scrub_ips = true
 use_favicon = true
+favicon_path = "server.png"
 default_level_name = "world"
 allow_chat_reports = false
 white_list = false

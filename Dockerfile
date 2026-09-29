@@ -12,7 +12,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Set up working directory for persistent server data
 WORKDIR /data
 
-# Copy and set entrypoint script
+# Copy default icon template and entrypoint script
+COPY server.png /defaults/server.png
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 

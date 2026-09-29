@@ -17,7 +17,8 @@ A fully automated Docker/Podman container for the high-performance Minecraft ser
   - `DIFFICULTY` (Default: `Normal`)
   - `MOTD` (Server message / display name)
   - `ONLINE_MODE` (Default: `false` — permits offline/LAN players without Mojang session verification)
-  - `OP_ACCOUNT` (Default: `SOME_USER` — automatically configured as level 4 Owner in `ops.json`)
+  - `OP_ACCOUNT` (Default: `SOME_USER` — comma-separated usernames supported; automatically resolves and injects their correct Mojang or offline UUIDs into `data/ops.json`)
+  - `SERVER_ICON` (Default: `server.png` — 64x64 PNG server icon; automatically deployed if missing)
   - `DEFAULT_OP_LEVEL` (Default: `4`)
   - `AUTO_UPDATE` (Default: `true`)
 - **Persistent Data Storage**: All configurations, worlds, player data, and logs are cleanly mounted and preserved on the host in `./server_data`.
@@ -79,6 +80,7 @@ services:
       - ONLINE_MODE=false
       - DEFAULT_OP_LEVEL=4
       - OP_ACCOUNT=SOME_USER
+      - SERVER_ICON=server.png
       - AUTO_UPDATE=true
     volumes:
       - ./server_data:/data

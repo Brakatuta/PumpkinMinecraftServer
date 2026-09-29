@@ -19,6 +19,7 @@ ONLINE_MODE="${ONLINE_MODE:-false}"
 DEFAULT_OP_LEVEL="${DEFAULT_OP_LEVEL:-4}"
 AUTO_UPDATE="${AUTO_UPDATE:-true}"
 OP_ACCOUNT="${OP_ACCOUNT:-SOME_USER}"
+SERVER_ICON="${SERVER_ICON:-server.png}"
 
 DATA_DIR="/data"
 BIN_PATH="/usr/local/bin/pumpkin"
@@ -28,7 +29,17 @@ cd "$DATA_DIR"
 mkdir -p "$DATA_DIR/data" "$DATA_DIR/logs"
 
 # --------------------------------------------------
-# 1. Check & Fetch Pumpkin binary for Minecraft VERSION
+# 1. Server Icon Setup
+# --------------------------------------------------
+if [ -n "$SERVER_ICON" ]; then
+    if [ ! -f "$DATA_DIR/$SERVER_ICON" ] && [ -f "/defaults/$SERVER_ICON" ]; then
+        echo "[Config] Deploying default server icon to $DATA_DIR/$SERVER_ICON..."
+        cp "/defaults/$SERVER_ICON" "$DATA_DIR/$SERVER_ICON"
+    fi
+fi
+
+# --------------------------------------------------
+# 2. Check & Fetch Pumpkin binary for Minecraft VERSION
 # --------------------------------------------------
 fetch_latest_release() {
     echo "[Updater] Checking GitHub for Pumpkin release matching Minecraft ${VERSION}..."
@@ -86,11 +97,10 @@ if [ ! -x "$BIN_PATH" ]; then
 fi
 
 # --------------------------------------------------
-# 2. Initialize default configuration if missing
+# 3. Initialize default configuration if missing
 # --------------------------------------------------
 if [ ! -f "$DATA_DIR/pumpkin.toml" ]; then
     echo "[Config] Initializing default pumpkin.toml..."
-    # Run briefly in background to let Pumpkin write initial configs
     "$BIN_PATH" &
     INIT_PID=$!
     sleep 2
@@ -99,11 +109,11 @@ if [ ! -f "$DATA_DIR/pumpkin.toml" ]; then
 fi
 
 # --------------------------------------------------
-# 3. Synchronize environment variables into pumpkin.toml
+# 4. Synchronize environment variables into pumpkin.toml
 # --------------------------------------------------
 echo "[Config] Applying server settings to pumpkin.toml..."
 python3 - <<EOF
-import re
+import re, os
 
 config_path = "$DATA_DIR/pumpkin.toml"
 try:
@@ -113,7 +123,6 @@ except Exception as e:
     print(f"Could not read {config_path}: {e}")
     content = ""
 
-# Updates top-level scalar values
 def set_top_level(key, value, is_string=False):
     global content
     formatted = f'"{value}"' if is_string else str(value).lower()
@@ -123,11 +132,9 @@ def set_top_level(key, value, is_string=False):
     else:
         content = f'{key} = {formatted}\n' + content
 
-# Updates table values
 def set_section_key(section, key, value, is_string=False):
     global content
     formatted = f'"{value}"' if is_string else (f'"{value}"' if isinstance(value, str) and not value in ["true", "false"] else str(value).lower())
-    
     sec_pattern = rf'(\[{re.escape(section)}\][^\[]*)'
     m = re.search(sec_pattern, content)
     if m:
@@ -147,6 +154,17 @@ if seed_val:
 
 set_top_level("default_gamemode", "$GAMEMODE", is_string=True)
 set_top_level("default_difficulty", "$DIFFICULTY", is_string=True)
+
+# Favicon / Server Icon
+icon_file = "$SERVER_ICON"
+if icon_file and os.path.isfile(os.path.join("$DATA_DIR", icon_file)):
+    set_top_level("use_favicon", "true")
+    set_top_level("favicon_path", icon_file, is_string=True)
+elif icon_file:
+    set_top_level("use_favicon", "true")
+    set_top_level("favicon_path", icon_file, is_string=True)
+else:
+    set_top_level("use_favicon", "false")
 
 # LAN broadcast
 lan_enabled = "$LAN_BROADCAST".lower() in ["true", "1", "yes"]
@@ -175,40 +193,96 @@ print("[Config] Settings successfully written to pumpkin.toml.")
 EOF
 
 # --------------------------------------------------
-# 4. Initialize Operator list (ops.json) if needed
+# 5. Synchronize Operator List (ops.json) with exact UUIDs
 # --------------------------------------------------
 OPS_FILE="$DATA_DIR/data/ops.json"
-if [ ! -f "$OPS_FILE" ] || [ ! -s "$OPS_FILE" ] || [ "$(cat "$OPS_FILE" 2>/dev/null)" = "[]" ]; then
-    echo "[Config] Initializing $OPS_FILE with operator account '${OP_ACCOUNT}'..."
-    python3 - <<EOF
-import json, hashlib, uuid
+echo "[Config] Synchronizing operators in ${OPS_FILE}..."
+python3 - <<EOF
+import json, hashlib, uuid, os, urllib.request
 
-def offline_uuid(name):
+ops_file = "${OPS_FILE}"
+raw_ops_input = "${OP_ACCOUNT}".strip()
+online_mode = "${ONLINE_MODE}".lower() in ["true", "1", "yes"]
+default_level = int("${DEFAULT_OP_LEVEL}")
+
+existing_ops = []
+if os.path.exists(ops_file):
+    try:
+        with open(ops_file, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            if isinstance(data, list):
+                existing_ops = data
+    except Exception as e:
+        print(f"[Config] Note: Could not parse existing {ops_file} ({e}), creating fresh list.")
+
+def get_offline_uuid(name):
     content = ('OfflinePlayer:' + name).encode('utf-8')
     md5 = bytearray(hashlib.md5(content).digest())
-    md5[6] = (md5[6] & 0x0f) | 0x30
-    md5[8] = (md5[8] & 0x3f) | 0x80
+    md5[6] = (md5[6] & 0x0f) | 0x30 # version 3
+    md5[8] = (md5[8] & 0x3f) | 0x80 # variant RFC 4122
     return str(uuid.UUID(bytes=bytes(md5)))
 
-op_name = "${OP_ACCOUNT}"
-op_uuid = offline_uuid(op_name)
+def get_mojang_uuid(name):
+    try:
+        url = f"https://api.mojang.com/users/profiles/minecraft/{name}"
+        req = urllib.request.Request(url, headers={"User-Agent": "Pumpkin-Server-Config"})
+        with urllib.request.urlopen(req, timeout=3) as resp:
+            if resp.status == 200:
+                profile = json.loads(resp.read().decode("utf-8"))
+                raw_id = profile.get("id")
+                if raw_id:
+                    return str(uuid.UUID(raw_id)), profile.get("name", name)
+    except Exception:
+        pass
+    return None, name
 
-ops_data = [
-    {
-        "uuid": op_uuid,
-        "name": op_name,
-        "level": int("${DEFAULT_OP_LEVEL}"),
-        "bypassesPlayerLimit": False
-    }
-]
+usernames = [u.strip() for u in raw_ops_input.split(",") if u.strip()]
 
-with open("${OPS_FILE}", "w", encoding="utf-8") as f:
-    json.dump(ops_data, f, indent=2)
+for user in usernames:
+    resolved_name = user
+    resolved_uuid = None
+    uuid_type = "offline"
+
+    if online_mode:
+        mojang_id, correct_name = get_mojang_uuid(user)
+        if mojang_id:
+            resolved_uuid = mojang_id
+            resolved_name = correct_name
+            uuid_type = "mojang"
+        else:
+            resolved_uuid = get_offline_uuid(user)
+    else:
+        resolved_uuid = get_offline_uuid(user)
+
+    # Check if already present by UUID or name
+    matched = False
+    for op in existing_ops:
+        if op.get("uuid") == resolved_uuid or op.get("name", "").lower() == resolved_name.lower():
+            op["uuid"] = resolved_uuid
+            op["name"] = resolved_name
+            op["level"] = default_level
+            op["bypassesPlayerLimit"] = op.get("bypassesPlayerLimit", False)
+            matched = True
+            print(f"[Config] Updated operator '{resolved_name}' (UUID: {resolved_uuid}, Type: {uuid_type}, Level: {default_level})")
+            break
+
+    if not matched:
+        existing_ops.append({
+            "uuid": resolved_uuid,
+            "name": resolved_name,
+            "level": default_level,
+            "bypassesPlayerLimit": False
+        })
+        print(f"[Config] Added operator '{resolved_name}' (UUID: {resolved_uuid}, Type: {uuid_type}, Level: {default_level})")
+
+with open(ops_file, "w", encoding="utf-8") as f:
+    json.dump(existing_ops, f, indent=2)
+
+print(f"[Config] Operator list successfully synchronized ({len(existing_ops)} operators).")
 EOF
-fi
 
 # --------------------------------------------------
-# 5. Launch Pumpkin with signal handling & tee logging
+# 6. Launch Pumpkin with signal handling & live logging
 # --------------------------------------------------
 echo "=================================================="
 echo " Starting Pumpkin Server (MC ${VERSION})          "
@@ -218,11 +292,11 @@ echo " Simulation Dist:   ${SIMULATION_DISTANCE}"
 echo " Gamemode:          ${GAMEMODE}"
 echo " Difficulty:        ${DIFFICULTY}"
 echo " LAN Broadcast:     ${LAN_BROADCAST}"
+echo " Server Icon:       ${SERVER_ICON}"
 echo " MOTD:              ${MOTD}"
 echo " Online Mode:       ${ONLINE_MODE}"
 echo "=================================================="
 
-# Forward termination signals gracefully
 cleanup() {
     echo "[Server] Received stop signal. Shutting down Pumpkin..."
     if [ -n "$SERVER_PID" ] && kill -0 "$SERVER_PID" 2>/dev/null; then
